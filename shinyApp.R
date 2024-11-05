@@ -24,7 +24,7 @@ num_vars <- mobile_behavior |>
 
 #create the UI
 ui <- fluidPage(
-  titlePanel("Project 2 558"),
+  titlePanel("Project 2 558 - Mobile Behavior Data Exploration App"),
   sidebarLayout(
     sidebarPanel(
       h1("Subset The Data!"),
@@ -68,6 +68,11 @@ ui <- fluidPage(
         selected = "`Screen On Time (hours/day)`",
         choices = as.factor(colnames(num_vars))
       ),
+      #numerical sliders for users to subset
+      uiOutput("num_slider1"),
+      uiOutput("num_slider2"),
+      #allows users to subset on numerical or categorical variables
+      actionButton("subset_num", "Apply Subset")
     ),
     mainPanel(
       tabsetPanel(
@@ -87,6 +92,9 @@ ui <- fluidPage(
         ),
         tabPanel("Data Download",
                  h3("Filtered Data"),
+                 #display filtered data table with complete data
+                 DT::dataTableOutput("filtered_data"),
+                 #show download button for the data
                  downloadButton("download_data", "Download Data")
         ),
         tabPanel("Data Explore",)
@@ -95,8 +103,65 @@ ui <- fluidPage(
                  ),
         )
 )
+#start server side
 server <- function(input, output, session) {
   
+  #make sure users can't pick duplicates for num var. similar to code from shiny app hw7
+  observeEvent(c(input$num_var1, input$num_var2), {
+    num_var1 <- input$num_var1
+    num_var2 <- input$num_var2
+    choices <- as.factor(colnames(num_vars))
+    if (num_var1 == num_var2){
+      choices <- choices[-which(choices == num_var1)]
+      updateSelectizeInput(session,
+                           "num_var2",
+                           choices = choices)
+    }
+  })
+  
+  #numerical slider 1
+  output$num_slider1 <- renderUI({
+    req(input$num_var1)
+    num_range1 <- range(num_vars[[input$num_var1]], na.rm = TRUE)
+    sliderInput(
+      "range1",
+      label = paste("Range Of", input$num_var1),
+      min = num_range1[1],
+      max = num_range1[2],
+      value = num_range1
+    )
+  })
+  
+  #numerical slider 2
+  output$num_slider2 <- renderUI({
+    req(input$num_var2)
+    num_range2 <- range(num_vars[[input$num_var2]], na.rm = TRUE)
+    sliderInput(
+      "range2",
+      label = paste("Range Of", input$num_var2),
+      min = num_range2[1],
+      max = num_range2[2],
+      value = num_range2
+    )
+  })
+  
+  #let data react to subsets.
+  filtered_data <- reactiveVal(mobile_behavior)
+  observeEvent(input$subset_num, {
+    filtered_data(mobile_behavior[
+      #subset data based on users slider input for numerical variables
+      mobile_behavior[[input$num_var1]] >= input$range1[1] & mobile_behavior[[input$num_var1]] <= input$range1[2] &
+        mobile_behavior[[input$num_var2]] >= input$range2[1] & mobile_behavior[[input$num_var2]] <= input$range2[2] &
+        #let data be unsubsetted (all) or let it react to the users input for agecat, gender, and OS
+        (input$AgeCat == "All" | mobile_behavior$AgeCat == input$AgeCat) &
+        (input$Gender == "All" | mobile_behavior$Gender == input$Gender) &
+        (input$OS == "All" | mobile_behavior$`Operating System` == input$OS),
+    ])
+  })
+  
+  #show filtered data on data download tab
+  output$filtered_data <- DT::renderDataTable({
+    filtered_data()})
   
   #allow user to download the data table in the download tab
   output$download_data <- downloadHandler(
