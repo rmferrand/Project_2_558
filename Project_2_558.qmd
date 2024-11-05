@@ -5,18 +5,27 @@ format: html
 editor: visual
 ---
 
+### Load in Data, Libraries, and Describe
+
 Load in all necessary libraries
 
 ```{r, warning = FALSE, message = FALSE}
 library(tidyverse)
-#library(GGally)
 library(corrplot)
 ```
 
 Read in the data and view
 
+Make sure user behavior class is a factor
+
+Add new categorical variable AgeCat
+
 ```{r message = FALSE}
 mobile_behavior<- read_csv("user_behavior_dataset.csv")
+mobile_behavior$`User Behavior Class` <- as.factor(mobile_behavior$`User Behavior Class`)
+mobile_behavior$AgeCat <- as.factor(ifelse(mobile_behavior$Age <= 28, 1,
+                                  ifelse(mobile_behavior$Age <= 38, 2,
+                                         ifelse(mobile_behavior$Age <= 49, 3, 4))))
 ```
 
 This dataset provides a comprehensive analysis of mobile device usage patterns and user behavior classification. It contains 700 samples of user data, including metrics such as app usage time, screen-on time, battery drain, and data consumption. Each entry is categorized into one of five user behavior classes, ranging from light to extreme usage, allowing for insightful analysis and modeling.
@@ -41,11 +50,15 @@ This dataset provides a comprehensive analysis of mobile device usage patterns a
 
 -   Age: Age of the user.
 
+-   AgeCat(NEW!): Separates users into Age groups 0-28, 29-38, 39-49, 50+
+
 -   Gender: Gender of the user (Male or Female).
 
 -   User Behavior Class: Classification of user behavior based on usage patterns (1 to 5). Light to extreme usage.
 
-One-way Contingency Tables
+### Categorical Data
+
+#### One-way Contingency Tables
 
 ```{r}
 table(mobile_behavior$`Operating System`)
@@ -54,7 +67,7 @@ table(mobile_behavior$Gender)
 table(mobile_behavior$`User Behavior Class`)
 ```
 
-Two-Way Contingency Tables
+#### Two-Way Contingency Tables
 
 ```{r}
 table(mobile_behavior$`Gender`, mobile_behavior$`Operating System`)
@@ -66,33 +79,37 @@ table(mobile_behavior$`User Behavior Class`, mobile_behavior$`Operating System`)
 
 off the gate, I think we should be able to subset on Operating System, Gender, and User Behavior Class.
 
-Basic Numeric Summaries
+### Numerical Data
 
 Calculate Min, Max, Mean, Median, SD, IQR for all numeric variables:
 
 ```{r}
+#across is.numeric subsets as necessary
 numerical_summaries <- mobile_behavior |>
   summarise(across(where(is.numeric), 
-  list(
-        Min = ~min(. , na.rm = TRUE),
-        Max = ~max(. , na.rm = TRUE),
-        Mean = ~mean(. , na.rm = TRUE),
-        Median = ~median(. , na.rm = TRUE),
-        SD = ~sd(. , na.rm = TRUE),
-        IQR = ~IQR(. , na.rm = TRUE)), 
-        .names = "{.col}_{.fn}")) |>
+    list(
+      Min = ~min(. , na.rm = TRUE),
+      Max = ~max(. , na.rm = TRUE),
+      Mean = ~mean(. , na.rm = TRUE),
+      Median = ~median(. , na.rm = TRUE),
+      SD = ~sd(. , na.rm = TRUE),
+      IQR = ~IQR(. , na.rm = TRUE)), 
+      .names = "{.col}_{.fn}")) |>
   pivot_longer(everything(), names_to = c("Variable", ".value"), 
                names_sep = "_") |>
-  #slice allows us to remove rows! it's like select but for rows
+  #slice allows us to remove rows! it's like select but for rows. is numeric doesnt remove all of the columns id like!
   slice(-c(1, 8))
 
 numerical_summaries
 ```
 
-by gender
+#### by gender
+
+Calculate Min, Max, Mean, Median, SD, IQR for all numeric variables by gender:
 
 ```{r}
 num_sum_gender <- mobile_behavior |>
+  #group by first allows us to see for each gender
   group_by(Gender) |>
   summarise(across(where(is.numeric), 
     list(
@@ -102,15 +119,17 @@ num_sum_gender <- mobile_behavior |>
       Median = ~median(. , na.rm = TRUE),
       SD = ~sd(. , na.rm = TRUE),
       IQR = ~IQR(. , na.rm = TRUE)), 
-    .names = "{.col}_{.fn}")) |>
+      .names = "{.col}_{.fn}")) |>
   pivot_longer(cols = -Gender, names_to = c("Variable", ".value"), 
-               names_sep = "_") |>
+    names_sep = "_") |>
   slice(-c(1, 8))
 
 num_sum_gender
 ```
 
-by operating system
+#### by operating system
+
+Calculate Min, Max, Mean, Median, SD, IQR for all numeric variables by OS:
 
 ```{r}
 num_sum_sys <- mobile_behavior |>
@@ -123,7 +142,7 @@ num_sum_sys <- mobile_behavior |>
       Median = ~median(. , na.rm = TRUE),
       SD = ~sd(. , na.rm = TRUE),
       IQR = ~IQR(. , na.rm = TRUE)), 
-    .names = "{.col}_{.fn}")) |>
+      .names = "{.col}_{.fn}")) |>
   pivot_longer(cols = -`Operating System`, names_to = c("Variable", ".value"), 
                names_sep = "_") |>
   slice(-c(1, 8))
@@ -131,7 +150,7 @@ num_sum_sys <- mobile_behavior |>
 num_sum_sys
 ```
 
-by \`User Behavior Class\`
+#### by \`User Behavior Class\`
 
 ```{r}
 num_sum_behavior <- mobile_behavior |>
@@ -144,7 +163,7 @@ num_sum_behavior <- mobile_behavior |>
       Median = ~median(. , na.rm = TRUE),
       SD = ~sd(. , na.rm = TRUE),
       IQR = ~IQR(. , na.rm = TRUE)), 
-    .names = "{.col}_{.fn}")) |>
+      .names = "{.col}_{.fn}")) |>
   pivot_longer(cols = -`User Behavior Class`, names_to = c("Variable", ".value"), 
                names_sep = "_") |>
   slice(-c(1, 8))
@@ -152,7 +171,14 @@ num_sum_behavior <- mobile_behavior |>
 num_sum_behavior
 ```
 
+### Create Graphs
+
+#### Histograms
+
+create a base histogram for user behavior class facet
+
 ```{r}
+#lets create a separate dataset so that we can pivotlonger without messing up the original dataset.
 num_var_graphdat <- mobile_behavior |>
   select(`User Behavior Class`, 
          `App Usage Time (min/day)`, 
@@ -161,17 +187,18 @@ num_var_graphdat <- mobile_behavior |>
          `Data Usage (MB/day)`) |>
   pivot_longer(cols = -`User Behavior Class`, 
                names_to = "numvar", 
-               values_to = "Scale")
+               values_to = "value")
 
-ggplot(num_var_graphdat, aes(x = `Scale`, fill = as.factor(`User Behavior Class`))) +
-  geom_histogram(bins = 30, position = "identity", alpha = 0.6,color = "black") +
+ggplot(num_var_graphdat, aes(x = `value`, fill = as.factor(`User Behavior Class`))) + geom_histogram(bins = 30, position = "identity", alpha = 0.7,color = "black") +
   facet_wrap(~ numvar, scales = "free") +
-  labs(x = "Scale For Numeric Variables", y = "Frequency of User", fill = "User Behavior Class") +
+  labs(x = "Numeric Variables", y = "Frequency", fill = "User Behavior Class") +
   theme_minimal() +
   theme(legend.position = "top")
 ```
 
-boxplot for os by mobile
+#### Boxplots
+
+create boxplots for the operating system
 
 ```{r}
 boxplot_var_graphdat <- mobile_behavior |>
@@ -182,20 +209,22 @@ boxplot_var_graphdat <- mobile_behavior |>
          `Data Usage (MB/day)`) |>
   pivot_longer(cols = -`Operating System`, 
                names_to = "numvar", 
-               values_to = "Scale")
+               values_to = "value")
 
-
-ggplot(boxplot_var_graphdat, aes(x = `Scale`, y = `numvar`, fill = as.factor(`Operating System`))) +
-  geom_boxplot(position = position_dodge(width = 0.75), alpha = 0.6, color = "black") +
-  facet_wrap(~ numvar, scales = "free") +
-  labs(x = "Scale For Numeric Variables", y = "Frequency of User", fill = "Operating System") +
-  theme_minimal() +
-  theme(legend.position = "top") +
-  scale_fill_manual(values = c("#78C257", "#555555")) +
-  coord_flip()
+#position dodge to view side by side
+ggplot(boxplot_var_graphdat, aes(x = `value`, y = `numvar`, 
+    fill = as.factor(`Operating System`))) +
+  geom_boxplot(position = position_dodge(width = 0.75), alpha = 0.6, 
+    color = "black") + 
+  facet_wrap(~ numvar, scales = "free") + 
+  labs(x = "Frequency", y = "Numeric Variables", fill = "Operating System") + 
+  theme_minimal() + theme(legend.position = "top") +
+  scale_fill_manual(values = c("#78C257", "#555555")) + coord_flip()
 ```
 
-corr matrix and corr plot
+#### corr matrix and corr plot
+
+correlation matrix and plot
 
 ```{r}
 cor_matrix <- mobile_behavior |>
@@ -203,12 +232,15 @@ cor_matrix <- mobile_behavior |>
          `Screen On Time (hours/day)`, 
          `Battery Drain (mAh/day)`, 
          `Data Usage (MB/day)`) |>
-  cor(use = "complete.obs") |>
-    corrplot(method = "circle", type = "upper", 
-           tl.col = "red", tl.srt = 45, addCoef.col = "black", col = colorRampPalette(c("cyan", "white", "salmon"))(200))
+  cor() |>
+  corrplot(method = "circle", type = "upper", 
+           tl.col = "red", tl.srt = 45, addCoef.col = "black", 
+           col = colorRampPalette(c("cyan", "white", "salmon"))(200))
 ```
 
-violin
+#### violin
+
+violin plots
 
 ```{r}
 violin_var_graphdat <- mobile_behavior |>
@@ -219,19 +251,22 @@ violin_var_graphdat <- mobile_behavior |>
          `Data Usage (MB/day)`) |>
   pivot_longer(cols = -`Gender`, 
                names_to = "numvar", 
-               values_to = "Scale")
+               values_to = "value")
 
 
-ggplot(violin_var_graphdat, aes(x = `Scale`, y = `numvar`, fill = as.factor(`Gender`))) +
-  geom_violin(position = position_dodge(width = 0.75), alpha = 0.6, color = "black") +
+ggplot(violin_var_graphdat, aes(x = `value`, y = `numvar`, fill = as.factor(`Gender`))) +
+  geom_violin(position = position_dodge(width = 0.75), alpha = 0.6, 
+              color = "black") +
   facet_wrap(~ numvar, scales = "free") +
-  labs(x = "Scale For Numeric Variables", y = "Frequency of User", fill = "Gender") +
+  labs(x = "Frequency", y = "Numeric Variables", fill = "Gender") +
   theme_minimal() +
   theme(legend.position = "top") +
   coord_flip()
 ```
 
-mobile behavior by gender
+#### Bar Graph
+
+bar graphs for categorical
 
 ```{r}
 ggplot(mobile_behavior, aes(x = `User Behavior Class`, fill = Gender)) +
@@ -241,62 +276,52 @@ ggplot(mobile_behavior, aes(x = `User Behavior Class`, fill = Gender)) +
   theme(legend.position = "top")
 ```
 
-create age categories
+#### pie chart
+
+pie chart for 1 categorical
 
 ```{r}
-mobile_behavior$AgeCat <- ifelse(mobile_behavior$Age <= 28, 1,
-                                  ifelse(mobile_behavior$Age <= 38, 2,
-                                         ifelse(mobile_behavior$Age <= 49, 3, 4)))
-table(mobile_behavior$AgeCat)
-```
-
-pie chart to display this
-
-```{r}
-age_cat_counts <- mobile_behavior |>
+#label counts
+pie_counts <- mobile_behavior |>
   group_by(AgeCat) |>
-  summarise(count = n(), .groups = 'drop') |>
-  mutate(pct = count / sum(count) * 100,
-         labelpos = cumsum(count) - 0.5 * count)
-#labelpos from ggplot logic uses counts to place labels in correct spots
+  summarise(counts = n(), .groups = 'drop')
 
-ggplot(age_cat_counts, aes(x = "", y = count, fill = factor(AgeCat))) +
+ggplot(pie_counts, aes(x = "", y = counts, fill = factor(AgeCat))) +
   geom_bar(stat = "identity", width = 1) +
   coord_polar(theta = "y") +  
-  labs(title = "Distribution of Age Categories", fill = "Age Category") +
-  theme_void() +
-  scale_fill_manual(values = c("#add8e6", "#ffe4e1", "#e0feff", "#e6e6fa"),
-                    labels = c("1: 28 and younger", 
-                               "2: 29-38", 
-                               "3: 39-49", 
-                               "4: 50 and older")) + 
-  geom_text(aes(y = labelpos, label = paste0(round(pct, 1), "%")), 
-            color = "black", size = 5) +
+  labs(fill = "AgeCat") +
+  theme_minimal() +
   theme(legend.position = "right")
 ```
 
-heatmap by agedat
+#### Ridge Plot
+
+ridge plot for 1 numeric 1 categorical
 
 ```{r}
-heatmap_var_graphdat <- mobile_behavior |>
-  select(`AgeCat`, 
-         `App Usage Time (min/day)`, 
-         `Screen On Time (hours/day)`, 
-         `Battery Drain (mAh/day)`, 
-         `Data Usage (MB/day)`) |>
-  pivot_longer(cols = -AgeCat, 
-               names_to = "numvar", 
-               values_to = "Scale") |>
-  group_by(numvar) |>
-  mutate(Scale = scale(Scale)) |> 
-  ungroup()
+  ggplot(mobile_behavior, aes(x = `App Usage Time (min/day)`, y = AgeCat, fill = AgeCat)) +
+    geom_density_ridges(alpha = 0.7) +
+    labs(x = "Numeric Variable",y = "AgeCat") +
+    theme_minimal(base_size = 17) +
+    theme(
+      axis.title.x = element_text(size = 17), 
+      axis.title.y = element_text(size = 17),
+      axis.text.x = element_text(angle = 45, hjust = 1)
+    )
+```
 
+#### Scatterplot
 
-ggplot(heatmap_var_graphdat, aes(x = numvar, y = as.factor(AgeCat), fill = Scale)) +
-  geom_tile(color = "white") +
-  scale_fill_gradient(low = "blue", high = "red") + 
-  labs(x = "Numeric Variable", y = "Age Category", fill = "Heat") +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+scatterplot for numerical
 
+```{r}
+ggplot(mobile_behavior, aes(x = `App Usage Time (min/day)`, y = `Screen On Time (hours/day)`)) +
+  geom_point(alpha = 0.7, color = "blue") + 
+  geom_smooth(method = "lm", se = FALSE, color = "red") +
+  labs(x = "app usage", 
+       y = "screen time", ) +
+  theme_minimal(base_size = 17) +
+  theme(axis.title.x = element_text(size = 17), 
+        axis.title.y = element_text(size = 17),
+        axis.text.x = element_text(angle = 45, hjust = 1))
 ```
