@@ -22,9 +22,53 @@ num_vars <- mobile_behavior |>
   select(`App Usage Time (min/day)`, `Screen On Time (hours/day)`, `Battery Drain (mAh/day)`, `Data Usage (MB/day)`) 
 
 
-
+#create the UI
 ui <- fluidPage(
   titlePanel("Project 2 558"),
+  sidebarLayout(
+    sidebarPanel(
+      h1("Subset The Data!"),
+      h2("Categorical Variables"),
+      #subset by age category
+      radioButtons(
+        "AgeCat",
+        "Age Category",
+        selected = "All",
+        choiceNames = c("All","28 or Younger", "29-38", "39-49", "50 or Older"),
+        choiceValues = c("All","1", "2", "3", "4")
+      ),
+      #subset by gender
+      radioButtons(
+        "Gender",
+        "Gender",
+        selected = "All",
+        choiceNames = c("All","Male", "Female"),
+        choiceValues = c("All","Male", "Female")
+      ),
+      #subset by operating system
+      radioButtons(
+        "OS",
+        "Operating System",
+        selected = "All",
+        choiceNames = c("All","Android", "iOS"),
+        choiceValues = c("All","Android", "iOS")
+      ),
+      h2("Numerical Variables"),
+      #allow user to subset by numeric variables
+      selectizeInput(
+        "num_var1",
+        "Numerical Variable 1",
+        selected = "`App Usage Time (min/day)`",
+        choices = as.factor(colnames(num_vars))
+      ),
+      #subset by numeric variable 2
+      selectizeInput(
+        "num_var2",
+        "Numerical Variable 2",
+        selected = "`Screen On Time (hours/day)`",
+        choices = as.factor(colnames(num_vars))
+      ),
+    ),
     mainPanel(
       tabsetPanel(
         tabPanel("About",
@@ -43,12 +87,27 @@ ui <- fluidPage(
         ),
         tabPanel("Data Download",
                  h3("Filtered Data"),
+                 downloadButton("download_data", "Download Data")
         ),
         tabPanel("Data Explore",)
                             
                    )
                  ),
         )
+)
 server <- function(input, output, session) {
+  
+  
+  #allow user to download the data table in the download tab
+  output$download_data <- downloadHandler(
+    filename = function() {
+      paste('filtered_data_', Sys.Date(), '.csv', sep = '')
+    },
+    content = function(file) {
+      write.csv(filtered_data(), file, row.names = FALSE) 
+    }
+  )
+  
+  
 }
 shinyApp(ui, server)
