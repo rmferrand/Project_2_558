@@ -4,6 +4,7 @@ library(corrplot)
 library(ggplot2)
 library(ggridges)
 library(shinycssloaders)
+library(shinyalert)
 
 mobile_behavior<- read_csv("user_behavior_dataset.csv")
 mobile_behavior$`User Behavior Class` <- as.factor(mobile_behavior$`User Behavior Class`)
@@ -80,18 +81,31 @@ ui <- fluidPage(
     mainPanel(
       tabsetPanel(
         tabPanel("About",
+                 img(src = "mobile_phones.jpg", alt = "Cartoon Image of Phone Usage", height = "400px", width = "400px"),
                  h3("Purpose"),
-                 "This Shiny app was constructed to complete the requirements listed for Project 2 in ST558.
-                 In general, this project combines functions, data analysis, and Shiny app creation.", 
+                  p("This Shiny app was created to fulfill the requirements for Project 2 in ST558, a Master of Statistics
+                  Course at North Carolina State University. The project focuses on the integration of functions, data analysis, 
+                  and the development of Shiny applications. The Shiny application allows users to interactively explore a datset,
+                  by means of subsetting, downloading, and variable analysis."),
                  h3("About the Data"),
-                 "The Data (found at https://www.kaggle.com/datasets/valakhorasani/mobile-device-usage-and-user-behavior-dataset)
-                 is a 700 observation ",
+                 p("The data",
+                   tags$a(href = "https://www.kaggle.com/datasets/valakhorasani/mobile-device-usage-and-user-behavior-dataset", 
+                          "(found at  this Kaggle link)", 
+                          target = "_blank"),
+                  "is a dataset containing 700 observations, with the topic of interest being mobile user behavior.
+                  The dataset categories users into 1 of 5 usage categories, from least extreme to most extreme based on various
+                  numerical variables (such as app usage, data usage, etc.). Users are also categorized by variables such as
+                  age, gender, etc."
+                 ),
                  h3("Data Subsetting and Exploration"),
-                 "In particular, we allow the user to subset the data at any point for their convenience.
-                 We allow the user to download the data (filtered or unfiltered) for their personal analysis.
-                 We allow the user to print numerical and categorical data analysis under the explore tab.
-                 Lastly, we allow the user to to view multiple graphs of the data for further numerical and
-                 categorical analysis."
+                 p("The sidebar layout allows the user to subset the data at any point. Users may select from any specific
+                   categorical variable and the various possible levels. The users may also select from a few numeric
+                   variables, and use the sliders to change the range of the data as they best see fit. The about tab,
+                   which you are reading now, is intended to outline the purpose and function of the Shiny app. the Data Download
+                   tab allows users to download the data for personal use, including subsetted and unsubsetted data. Finally,
+                   the data explore tab allows the user to run through numerical, categorical, and graphical analysis of the
+                   data."),
+                 h3("I hope you enjoy this app! Have fun!")
         ),
         tabPanel("Data Download",
                  h3("Filtered Data"),
@@ -295,15 +309,31 @@ server <- function(input, output, session) {
   #let data react to subsets.
   filtered_data <- reactiveVal(mobile_behavior)
   observeEvent(input$subset_num, {
-    filtered_data(mobile_behavior[
-      #subset data based on users slider input for numerical variables
+    #filter the data, check number of obs. display warning 
+    if (nrow(mobile_behavior[
       mobile_behavior[[input$num_var1]] >= input$range1[1] & mobile_behavior[[input$num_var1]] <= input$range1[2] &
-        mobile_behavior[[input$num_var2]] >= input$range2[1] & mobile_behavior[[input$num_var2]] <= input$range2[2] &
-        #let data be unsubsetted (all) or let it react to the users input for agecat, gender, and OS
-        (input$AgeCat == "All" | mobile_behavior$AgeCat == input$AgeCat) &
-        (input$Gender == "All" | mobile_behavior$Gender == input$Gender) &
-        (input$OS == "All" | mobile_behavior$`Operating System` == input$OS),
-    ])
+      mobile_behavior[[input$num_var2]] >= input$range2[1] & mobile_behavior[[input$num_var2]] <= input$range2[2] &
+      (input$AgeCat == "All" | mobile_behavior$AgeCat == input$AgeCat) &
+      (input$Gender == "All" | mobile_behavior$Gender == input$Gender) &
+      (input$OS == "All" | mobile_behavior$`Operating System` == input$OS),
+    ]) < 2) {
+      shinyalert(
+        title = "Whoops!",
+        text = "The data has fewer than two observations after subsetting. This may cause issues in graphing. Please adjust your filters.",
+        type = "warning",
+        showConfirmButton = TRUE,
+        closeOnClickOutside = TRUE
+      )
+    } else {
+      #update fitered_data() only if the numbers are sufficient
+      filtered_data(mobile_behavior[
+        mobile_behavior[[input$num_var1]] >= input$range1[1] & mobile_behavior[[input$num_var1]] <= input$range1[2] &
+          mobile_behavior[[input$num_var2]] >= input$range2[1] & mobile_behavior[[input$num_var2]] <= input$range2[2] &
+          (input$AgeCat == "All" | mobile_behavior$AgeCat == input$AgeCat) &
+          (input$Gender == "All" | mobile_behavior$Gender == input$Gender) &
+          (input$OS == "All" | mobile_behavior$`Operating System` == input$OS),
+      ])
+    }
   })
   
   #show filtered data on data download tab
