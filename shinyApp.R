@@ -3,6 +3,7 @@ library(tidyverse)
 library(corrplot)
 library(ggplot2)
 library(ggridges)
+library(shinycssloaders)
 
 mobile_behavior<- read_csv("user_behavior_dataset.csv")
 mobile_behavior$`User Behavior Class` <- as.factor(mobile_behavior$`User Behavior Class`)
@@ -136,6 +137,7 @@ ui <- fluidPage(
                                                    choices = colnames(cat_vars), 
                                                    selected = "User Behavior Class"),
                                        withSpinner(plotOutput("multihistogram", width = "100%", height = "700px")),
+                                       h3(uiOutput("hist_info"))
                               ),
                               tabPanel("Boxplots",
                                        h3("Boxplots"),
@@ -143,10 +145,12 @@ ui <- fluidPage(
                                                    choices = colnames(cat_vars), 
                                                    selected = "Gender"),
                                        withSpinner(plotOutput("multiboxplot", width = "100%", height = "700px")),
+                                       h3(uiOutput("box_info"))
                               ),
                               tabPanel("Correlation Plot",
                                        h3("Correlation Plot"),
                                        withSpinner(plotOutput("corrplot", width = "100%", height = "700px")),
+                                       h3(uiOutput("corr_info"))
                               ),
                               tabPanel("Violin Plot",
                                        h3("Violin Plot"),
@@ -154,6 +158,7 @@ ui <- fluidPage(
                                                    choices = colnames(cat_vars), 
                                                    selected = "AgeCat"),
                                        withSpinner(plotOutput("violin", width = "100%", height = "700px")),
+                                       h3(uiOutput("violin_info"))
                               ),
                               tabPanel("Pie Chart",
                                        h3("Pie Chart"),
@@ -161,6 +166,7 @@ ui <- fluidPage(
                                                    choices = colnames(cat_vars), 
                                                    selected = "Operating System"),
                                        withSpinner(plotOutput("pie", width = "100%", height = "700px")),
+                                       h3(uiOutput("pie_info"))
                               ),
                               tabPanel("Ridge Plot",
                                        h3("Ridge Plot"),
@@ -171,6 +177,7 @@ ui <- fluidPage(
                                                    choices = colnames(num_vars), 
                                                    selected = "App Usage Time (min/day)"),
                                        withSpinner(plotOutput("ridge", width = "100%", height = "700px")),
+                                       h3(uiOutput("ridge_info"))
                               ),
                               tabPanel("Scatterplot",
                                        h3("Scatterplot"),
@@ -181,6 +188,7 @@ ui <- fluidPage(
                                                    choices = colnames(num_vars), 
                                                    selected = "Screen On Time (hours/day)"),
                                        withSpinner(plotOutput("scatter", width = "100%", height = "700px")),
+                                       h3(uiOutput("scatter_info"))
                               ),
                               tabPanel("Bar Graph",
                                        h3("Bar Graph"),
@@ -191,6 +199,7 @@ ui <- fluidPage(
                                                    choices = colnames(cat_vars), 
                                                    selected = "User Behavior Class"),
                                        withSpinner(plotOutput("bargraph", width = "100%", height = "700px")),
+                                       h3(uiOutput("bar_info"))
                               ),
                             )
                    )
@@ -214,6 +223,45 @@ server <- function(input, output, session) {
       choices <- choices[-which(choices == num_var1)]
       updateSelectizeInput(session,
                            "num_var2",
+                           choices = choices)
+    }
+  })
+  
+  #no duplicate two way contigency table
+  observeEvent(c(input$twoway_cat1, input$twoway_cat2), {
+    twoway_cat1 <- input$twoway_cat1
+    twoway_cat2 <- input$twoway_cat2
+    choices <- as.factor(colnames(cat_vars))
+    if (twoway_cat1 == twoway_cat2){
+      choices <- choices[-which(choices == twoway_cat1)]
+      updateSelectizeInput(session,
+                           "twoway_cat2",
+                           choices = choices)
+    }
+  })
+  
+  #no duplicate scatterplot
+  observeEvent(c(input$scatternum_var1, input$scatternum_var2), {
+    scatternum_var1 <- input$scatternum_var1
+    scatternum_var2 <- input$scatternum_var2
+    choices <- as.factor(colnames(num_vars))
+    if (scatternum_var1 == scatternum_var2){
+      choices <- choices[-which(choices == scatternum_var1)]
+      updateSelectizeInput(session,
+                           "scatternum_var2",
+                           choices = choices)
+    }
+  })
+  
+  #no duplicate bar graph
+  observeEvent(c(input$barcat_var1, input$barcat_var2), {
+    barcat_var1 <- input$barcat_var1
+    barcat_var2<- input$barcat_var2
+    choices <- as.factor(colnames(cat_vars))
+    if (barcat_var1 == barcat_var2){
+      choices <- choices[-which(choices == barcat_var1)]
+      updateSelectizeInput(session,
+                           "barcat_var2",
                            choices = choices)
     }
   })
@@ -292,17 +340,116 @@ server <- function(input, output, session) {
 
   #output numerical summaries. small error right now
   output$numerical_summaries <- renderTable({
+    if (input$one_num != "All" && input$one_cat != "None"){
+      filtered_data() |>
+        group_by(!!sym(input$one_cat)) |>
+        summarise(across(all_of(input$one_num), list(
+          Min = ~min(. , na.rm = TRUE),
+          Max = ~max(. , na.rm = TRUE),
+          Mean = ~mean(. , na.rm = TRUE),
+          Median = ~median(. , na.rm = TRUE),
+          SD = ~sd(. , na.rm = TRUE),
+          IQR = ~IQR(. , na.rm = TRUE)), 
+          .names = "{.col}_{.fn}")) |>
+        pivot_longer(cols = -!!sym(input$one_cat), names_to = c("Variable", ".value"), 
+                     names_sep = "_") |>
+        as.data.frame()
+    }
+    else if(input$one_cat != "None") {
+      filtered_data() |>
+        group_by(!!sym(input$one_cat)) |>
+        summarise(across(where(is.numeric), list(
+          Min = ~min(. , na.rm = TRUE),
+          Max = ~max(. , na.rm = TRUE),
+          Mean = ~mean(. , na.rm = TRUE),
+          Median = ~median(. , na.rm = TRUE),
+          SD = ~sd(. , na.rm = TRUE),
+          IQR = ~IQR(. , na.rm = TRUE)), 
+          .names = "{.col}_{.fn}")) |>
+        pivot_longer(cols = -!!sym(input$one_cat), names_to = c("Variable", ".value"), 
+                     names_sep = "_") |>
+        slice(-c(1, 8)) |> 
+        as.data.frame()
+    } 
+    else if (input$one_num != "All") {
+      filtered_data() |>
+        summarise(across(all_of(input$one_num), 
+                         list(
+                           Min = ~min(. , na.rm = TRUE),
+                           Max = ~max(. , na.rm = TRUE),
+                           Mean = ~mean(. , na.rm = TRUE),
+                           Median = ~median(. , na.rm = TRUE),
+                           SD = ~sd(. , na.rm = TRUE),
+                           IQR = ~IQR(. , na.rm = TRUE)), 
+                         .names = "{.col}_{.fn}")) |>
+        pivot_longer(everything(), names_to = c("Variable", ".value"), names_sep = "_")
+    }
+    else {
+      filtered_data() |>
+        summarise(across(where(is.numeric), 
+                         list(
+                           Min = ~min(. , na.rm = TRUE),
+                           Max = ~max(. , na.rm = TRUE),
+                           Mean = ~mean(. , na.rm = TRUE),
+                           Median = ~median(. , na.rm = TRUE),
+                           SD = ~sd(. , na.rm = TRUE),
+                           IQR = ~IQR(. , na.rm = TRUE)), 
+                         .names = "{.col}_{.fn}")) |>
+        pivot_longer(everything(), names_to = c("Variable", ".value"), names_sep = "_") |>
+        slice(-c(1, 8))
+    }
+  })
   
-    filtered_data() |> 
-      summarise(across(where(is.numeric), list(
-        Min = ~min(.),
-        Max = ~max(.),
-        Mean = ~mean(.),
-        Median = ~median(.),
-        SD = ~sd(.),
-        IQR = ~IQR(.)), .names = "{.col}_{.fn}")) |> 
-      pivot_longer(everything(), names_to = c("Variable", ".value"), names_sep = "_") |>
-      slice(-c(1, 8, 9)) |> as.data.frame()
+  #find total number of observations of filtered data
+  total_obs <- reactive({
+    nrow(filtered_data())
+  })
+  
+  #observations per group histogram
+  cat_obs_countshist <- reactive({
+    curr_cat_var <- filtered_data()[[input$hist_cat]]
+    cat_counts <- table(curr_cat_var)
+    cat_counts
+  })
+  
+  #observations per group boxplot
+  cat_obs_countsbox <- reactive({
+    curr_cat_var <- filtered_data()[[input$box_cat]]
+    cat_counts <- table(curr_cat_var)
+    cat_counts
+  })
+  
+  #observations per group violin plot
+  cat_obs_countsviolin <- reactive({
+    curr_cat_var <- filtered_data()[[input$violin_cat]]
+    cat_counts <- table(curr_cat_var)
+    cat_counts
+  })
+  
+  #observations per group pie chart
+  cat_obs_countspie <- reactive({
+    curr_cat_var <- filtered_data()[[input$pie_cat]]
+    cat_counts <- table(curr_cat_var)
+    cat_counts
+  })
+  
+  #observations per group ridge plot
+  cat_obs_countsridge <- reactive({
+    curr_cat_var <- filtered_data()[[input$ridge_cat]]
+    cat_counts <- table(curr_cat_var)
+    cat_counts
+  })
+  
+  #observations per group bar graph 1
+  cat_obs_countsbar1 <- reactive({
+    curr_cat_var1 <- filtered_data()[[input$barcat_var1]]
+    cat_counts1 <- table(curr_cat_var1)
+  })
+  
+  #observations per group bar graph 2
+  cat_obs_countsbar2 <- reactive({
+    curr_cat_var2 <- filtered_data()[[input$barcat_var2]]
+    cat_counts2 <- table(curr_cat_var2)
   })
   
   #create separate dataset with user selection
@@ -327,6 +474,14 @@ server <- function(input, output, session) {
             axis.title.x = element_text(size = 17), 
             axis.title.y = element_text(size = 17),
             strip.text = element_text(size = 14))
+  })
+  
+  output$hist_info <- renderText({
+    HTML(paste0(
+      "After subsetting, the total number of observations is ", total_obs(), ".<br/>",
+      "For each ", input$hist_cat, " group, the number of observations is as follows: <br/>",
+      paste(names(cat_obs_countshist()), cat_obs_countshist(), sep = ": ", collapse = "<br/>")
+    ))
   })
   
   #create separate dataset with user selection
@@ -354,6 +509,14 @@ server <- function(input, output, session) {
       coord_flip()
     
   })
+  
+  output$box_info <- renderText({
+    HTML(paste0(
+      "After subsetting, the total number of observations is ", total_obs(), ".<br/>",
+      "For each ", input$box_cat, " group, the number of observations is as follows: <br/>",
+      paste(names(cat_obs_countsbox()), cat_obs_countsbox(), sep = ": ", collapse = "<br/>")
+    ))
+  })
 
   #create corrplot for numerical variable analysis
   output$corrplot <- renderPlot({
@@ -367,6 +530,11 @@ server <- function(input, output, session) {
       cor(use = "complete.obs") |>
       corrplot(method = "circle", type = "upper", 
                tl.col = "red", tl.srt = 45, addCoef.col = "black", col = colorRampPalette(c("cyan", "white", "salmon"))(200))
+  })
+  
+  output$corr_info <- renderText({
+    HTML(paste0(
+      "After subsetting, the total number of observations is ", total_obs(), ".<br/>"))
   })
   
   
@@ -395,6 +563,14 @@ server <- function(input, output, session) {
       coord_flip()
   })
   
+  output$violin_info <- renderText({
+    HTML(paste0(
+      "After subsetting, the total number of observations is ", total_obs(), ".<br/>",
+      "For each ", input$violin_cat, " group, the number of observations is as follows: <br/>",
+      paste(names(cat_obs_countsviolin()), cat_obs_countsviolin(), sep = ": ", collapse = "<br/>")
+    ))
+  })
+  
   #create counts for the pie chart
   output$pie <- renderPlot({
     pie_counts <- filtered_data() |>
@@ -413,6 +589,14 @@ server <- function(input, output, session) {
             strip.text = element_text(size = 14))
   })
   
+  output$pie_info <- renderText({
+    HTML(paste0(
+      "After subsetting, the total number of observations is ", total_obs(), ".<br/>",
+      "For each ", input$pie_cat, " group, the number of observations is as follows: <br/>",
+      paste(names(cat_obs_countspie()), cat_obs_countspie(), sep = ": ", collapse = "<br/>")
+    ))
+  })
+  
   #ridge plot for one numeric one categorical variable with user selection
   output$ridge <- renderPlot({
     ggplot(filtered_data(), aes(x = !!sym(input$ridge_num), y = !!sym(input$ridge_cat), fill = !!sym(input$ridge_cat))) +
@@ -424,6 +608,14 @@ server <- function(input, output, session) {
         axis.title.y = element_text(size = 17),
         axis.text.x = element_text(angle = 45, hjust = 1)
       )
+  })
+  
+  output$ridge_info <- renderText({
+    HTML(paste0(
+      "After subsetting, the total number of observations is ", total_obs(), ".<br/>",
+      "For each ", input$ridge_cat, " group, the number of observations is as follows: <br/>",
+      paste(names(cat_obs_countsridge()), cat_obs_countsridge(), sep = ": ", collapse = "<br/>")
+    ))
   })
   
   #scatterplot for two numeric variables with user selection
@@ -444,6 +636,12 @@ server <- function(input, output, session) {
       )
   })
   
+  output$scatter_info <- renderText({
+    HTML(paste0(
+      "After subsetting, the total number of observations is ", total_obs(), ".<br/>"
+    ))
+  })
+  
   #bar graph between two categorical variables with user selection
   output$bargraph <- renderPlot({
     ggplot(filtered_data(), aes(x = !!sym(input$barcat_var1), fill = as.factor(!!sym(input$barcat_var2)))) +
@@ -456,6 +654,15 @@ server <- function(input, output, session) {
       theme(legend.position = "top")
   })
   
+  output$bar_info <- renderText({
+    HTML(paste0(
+      "After subsetting, the total number of observations is ", total_obs(), ".<br/><br/>",
+      "For each ", input$barcat_var1, " group, the number of observations is as follows: <br/>",
+      paste(names(cat_obs_countsbar1()), cat_obs_countsbar1(), sep = ": ", collapse = "<br/>"), "<br/><br/>",
+      "For each ", input$barcat_var2, " group, the number of observations is as follows: <br/>",
+      paste(names(cat_obs_countsbar2()), cat_obs_countsbar2(), sep = ": ", collapse = "<br/>")
+    ))
+  })
   
 }
 shinyApp(ui, server)
