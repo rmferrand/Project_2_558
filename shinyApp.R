@@ -495,7 +495,7 @@ server <- function(input, output, session) {
     ggplot(num_var_graphdat, aes(x = value, fill = as.factor(!!sym(input$hist_cat)))) +
       geom_histogram(bins = 30, position = "identity", alpha = 0.7, color = "black") +
       facet_wrap(~ numvar, scales = "free") +
-      labs(title = paste("Histogram Of Numeric Variables by", input$hist_cat), x = "Numeric Variables", y = "Frequency By User Behavior", fill = sym(input$hist_cat)) +
+      labs(title = paste("Histogram Of Numeric Variables by", input$hist_cat), x = "Numeric Variables", y = "Frequency", fill = sym(input$hist_cat)) +
       theme_minimal(base_size = 17) +
       theme(legend.position = "top",
             axis.title.x = element_text(size = 17), 
@@ -528,7 +528,7 @@ server <- function(input, output, session) {
     ggplot(boxplot_var_graphdat, aes(x = `value`, y = `numvar`, fill = as.factor(!!sym(input$box_cat)))) +
       geom_boxplot(position = position_dodge(width = 0.75), alpha = 0.7, color = "black") +
       facet_wrap(~ numvar, scales = "free") +
-      labs(title = paste("Boxplot Of Numeric Variables by", input$box_cat), x = "Scale For Numeric Variables", y = "Frequency of User", fill = (input$box_cat)) +
+      labs(title = paste("Boxplot Of Numeric Variables by", input$box_cat), y = "Numeric Variables", x = "Frequency", fill = (input$box_cat)) +
       theme_minimal(base_size = 17) +
       theme(legend.position = "top",
             axis.title.x = element_text(size = 17), 
@@ -609,7 +609,7 @@ server <- function(input, output, session) {
     ggplot(violin_var_graphdat, aes(x = `value`, y = `numvar`, fill = as.factor((!!sym(input$violin_cat))))) +
       geom_violin(position = position_dodge(width = 0.75), alpha = 0.7, color = "black") +
       facet_wrap(~ numvar, scales = "free") +
-      labs(title = paste("Violin Plot Of Numeric Variables by", input$violin_cat), x = "Numeric Variables", y = "Frequency of User", fill = ((input$violin_cat))) +
+      labs(title = paste("Violin Plot Of Numeric Variables by", input$violin_cat), y = "Numeric Variables", x = "Frequency", fill = ((input$violin_cat))) +
       theme_minimal(base_size = 17) +
       theme(legend.position = "top",
             axis.title.x = element_text(size = 17), 
