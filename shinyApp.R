@@ -1,3 +1,4 @@
+#read in libraries
 library(shiny)
 library(tidyverse)
 library(corrplot)
@@ -6,6 +7,7 @@ library(ggridges)
 library(shinycssloaders)
 library(shinyalert)
 
+#read in mobile behavior
 mobile_behavior<- read_csv("user_behavior_dataset.csv")
 mobile_behavior$`User Behavior Class` <- as.factor(mobile_behavior$`User Behavior Class`)
 mobile_behavior$AgeCat <- as.factor(ifelse(mobile_behavior$Age <= 28, 1,
@@ -59,14 +61,14 @@ ui <- fluidPage(
       ),
       h2("Numerical Variables"),
       #allow user to subset by numeric variables
-      selectizeInput(
+      selectInput(
         "num_var1",
         "Numerical Variable 1",
         selected = "`App Usage Time (min/day)`",
         choices = as.factor(colnames(num_vars))
       ),
       #subset by numeric variable 2
-      selectizeInput(
+      selectInput(
         "num_var2",
         "Numerical Variable 2",
         selected = "`Screen On Time (hours/day)`",
@@ -80,8 +82,10 @@ ui <- fluidPage(
     ),
     mainPanel(
       tabsetPanel(
+        #about section to talk about the app and introduce the purpose
         tabPanel("About",
                  img(src = "mobile_phones.jpg", alt = "Cartoon Image of Phone Usage", height = "400px", width = "400px"),
+                 p("Phone Addicts are everywhere in the modern world."),
                  h3("Purpose"),
                   p("This Shiny app was created to fulfill the requirements for Project 2 in ST558, a Master of Statistics
                   Course at North Carolina State University. The project focuses on the integration of functions, data analysis, 
@@ -97,7 +101,7 @@ ui <- fluidPage(
                           "(found at  this Kaggle link)", 
                           target = "_blank"),
                   "is a dataset containing 700 observations, with the topic of interest being mobile user behavior.
-                  The dataset categories users into 1 of 5 usage categories, from least extreme to most extreme based on various
+                  The dataset categorizes users into 1 of 5 usage categories, from least extreme to most extreme based on various
                   numerical variables (such as app usage, data usage, etc.). Users are also categorized by variables such as
                   age, gender, etc."
                  ),
@@ -105,9 +109,9 @@ ui <- fluidPage(
                  p("The sidebar layout allows the user to subset the data at any point. Users may select from any specific
                    categorical variable and the various possible levels. The users may also select from a few numeric
                    variables, and use the sliders to change the range of the data as they best see fit. The about tab,
-                   which you are reading now, is intended to outline the purpose and function of the Shiny app. the Data Download
+                   which you are reading now, is intended to outline the purpose and function of the Shiny app. The Data Download
                    tab allows users to download the data for personal use, including subsetted and unsubsetted data. Finally,
-                   the data explore tab allows the user to run through numerical, categorical, and graphical analysis of the
+                   the data exploration tab allows the user to run through numerical, categorical, and graphical analysis of the
                    data."),
                  h3("I hope you enjoy this app! Have fun!")
         ),
@@ -118,23 +122,24 @@ ui <- fluidPage(
                  #show download button for the data
                  downloadButton("download_data", "Download Data")
         ),
-        tabPanel("Data Explore",
+        #start the exploration section including categorical variables, numerical, and graphical
+        tabPanel("Data Exploration",
                  tabsetPanel(
                    tabPanel("Categorical Variable Analysis",
                             tabsetPanel(
                               tabPanel("One-Way Contingency Tables",
                                        h3("One-Way Contingency Tables"),
-                                       selectizeInput("oneway_cat", "Select Categorical Variable", 
+                                       selectInput("oneway_cat", "Select Categorical Variable", 
                                                    choices = colnames(cat_vars), 
                                                    selected = "AgeCat"),
                                        tableOutput("oneway_table"),
                               ),
                               tabPanel("Two-Way Contingency Tables",
                                        h3("Two-Way Contingency Tables"),
-                                       selectizeInput("twoway_cat1", "Select Categorical Variable 1", 
+                                       selectInput("twoway_cat1", "Select Categorical Variable 1", 
                                                       choices = colnames(cat_vars), 
                                                       selected = "AgeCat"),
-                                       selectizeInput("twoway_cat2", "Select Categorical Variable 2", 
+                                       selectInput("twoway_cat2", "Select Categorical Variable 2", 
                                                       choices = colnames(cat_vars), 
                                                       selected = "User Behavior Class"),
                                        tableOutput("twoway_table"),
@@ -154,6 +159,7 @@ ui <- fluidPage(
                                        selectInput("hist_cat", "Select Filling Categorical Variable", 
                                                    choices = colnames(cat_vars), 
                                                    selected = "User Behavior Class"),
+                                       #loading spinner
                                        withSpinner(plotOutput("multihistogram", width = "100%", height = "700px")),
                                        h3(uiOutput("hist_info"))
                               ),
@@ -234,7 +240,7 @@ server <- function(input, output, session) {
     }
   })
   
-  #no duplicate two way contigency table
+  #no duplicate two way contingency table
   observeEvent(c(input$twoway_cat1, input$twoway_cat2), {
     twoway_cat1 <- input$twoway_cat1
     twoway_cat2 <- input$twoway_cat2
@@ -310,6 +316,7 @@ server <- function(input, output, session) {
       (input$Gender == "All" | mobile_behavior$Gender == input$Gender) &
       (input$OS == "All" | mobile_behavior$`Operating System` == input$OS),
     ]) < 2) {
+      #print alert
       shinyalert(
         title = "Whoops!",
         text = "The data has fewer than two observations after subsetting. This may cause issues in graphing and table output. Please adjust your filters.",
@@ -318,7 +325,7 @@ server <- function(input, output, session) {
         closeOnClickOutside = TRUE
       )
     } else {
-      #update fitered_data() only if the numbers are sufficient
+      #update filtered_data() only if the numbers are sufficient
       filtered_data(mobile_behavior[
         mobile_behavior[[input$num_var1]] >= input$range1[1] & mobile_behavior[[input$num_var1]] <= input$range1[2] &
           mobile_behavior[[input$num_var2]] >= input$range2[1] & mobile_behavior[[input$num_var2]] <= input$range2[2] &
@@ -336,7 +343,7 @@ server <- function(input, output, session) {
   #allow user to download the data table in the download tab
   output$download_data <- downloadHandler(
     filename = function() {
-      paste('filtered_data_', Sys.Date(), '.csv', sep = '')
+      paste('mobile_behavior', '.csv', sep = "")
     },
     content = function(file) {
       write.csv(filtered_data(), file, row.names = FALSE) 
@@ -361,7 +368,8 @@ server <- function(input, output, session) {
       setNames(c(input$twoway_cat1, input$twoway_cat2, "Frequency"))
   }, rownames = FALSE)
 
-  #output numerical summaries. small error right now
+  #output numerical summaries. allow user to select group and specific variable if desired
+  #conditional logic. select both specific variable and group by first
   output$numerical_summaries <- renderTable({
     if (input$one_num != "All" && input$one_cat != "None"){
       filtered_data() |>
@@ -378,6 +386,7 @@ server <- function(input, output, session) {
                      names_sep = "_") |>
         as.data.frame()
     }
+    #group by variable
     else if(input$one_cat != "None") {
       filtered_data() |>
         group_by(!!sym(input$one_cat)) |>
@@ -393,7 +402,8 @@ server <- function(input, output, session) {
                      names_sep = "_") |>
         slice(-c(1, 8)) |> 
         as.data.frame()
-    } 
+    }
+    #specific num var
     else if (input$one_num != "All") {
       filtered_data() |>
         summarise(across(all_of(input$one_num), 
@@ -407,6 +417,7 @@ server <- function(input, output, session) {
                          .names = "{.col}_{.fn}")) |>
         pivot_longer(everything(), names_to = c("Variable", ".value"), names_sep = "_")
     }
+    #all other cases
     else {
       filtered_data() |>
         summarise(across(where(is.numeric), 
@@ -456,13 +467,6 @@ server <- function(input, output, session) {
     cat_counts
   })
   
-  #observations per group ridge plot
-  cat_obs_countsridge <- reactive({
-    curr_cat_var <- filtered_data()[[input$ridge_cat]]
-    cat_counts <- table(curr_cat_var)
-    cat_counts
-  })
-  
   #observations per group bar graph 1
   cat_obs_countsbar1 <- reactive({
     curr_cat_var1 <- filtered_data()[[input$barcat_var1]]
@@ -499,6 +503,7 @@ server <- function(input, output, session) {
             strip.text = element_text(size = 14))
   })
   
+  #dynamic text
   output$hist_info <- renderText({
     HTML(paste0(
       "After subsetting, the total number of observations is ", total_obs(), ".<br/>",
@@ -547,14 +552,14 @@ server <- function(input, output, session) {
     if (any(sapply(filtered_data() |> select(-`User ID`) |> select(where(is.numeric)), sd, na.rm = TRUE) == 0)) {
       shinyalert(
         title = "Whoops!",
-        text = "You have subsetted the data too much. The corrplot does not have enough observations to properly render all variables. Please adjust your filters.",
+        text = "You have subsetted the data too much. The correlation plot does not have enough observations to properly render all variables. Please adjust your filters.",
         type = "warning",
         showConfirmButton = TRUE,
         closeOnClickOutside = TRUE
       )
       return(NULL)
     }
-    
+    #otherwise output corrplot
     filtered_data() |>
       select(-`User ID`) |>
       select(where(is.numeric)) |>
