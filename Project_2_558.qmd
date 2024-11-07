@@ -1,5 +1,5 @@
 ---
-title: "Project_2_558"
+title: "Static Data Exploration"
 author: "Robbie Ferrand"
 format: html
 editor: visual
@@ -191,7 +191,7 @@ num_var_graphdat <- mobile_behavior |>
 
 ggplot(num_var_graphdat, aes(x = `value`, fill = as.factor(`User Behavior Class`))) + geom_histogram(bins = 30, position = "identity", alpha = 0.7,color = "black") +
   facet_wrap(~ numvar, scales = "free") +
-  labs(x = "Numeric Variables", y = "Frequency", fill = "User Behavior Class") +
+  labs(title = "Histogram of Numerical Variables by User Behavior Class", x = "Numeric Variables", y = "Frequency", fill = "User Behavior Class") +
   theme_minimal() +
   theme(legend.position = "top")
 ```
@@ -217,7 +217,7 @@ ggplot(boxplot_var_graphdat, aes(x = `value`, y = `numvar`,
   geom_boxplot(position = position_dodge(width = 0.75), alpha = 0.6, 
     color = "black") + 
   facet_wrap(~ numvar, scales = "free") + 
-  labs(x = "Frequency", y = "Numeric Variables", fill = "Operating System") + 
+  labs(title = "Boxplot of Numerical Variables by Operating System", x = "Frequency", y = "Numeric Variables", fill = "Operating System") + 
   theme_minimal() + theme(legend.position = "top") +
   scale_fill_manual(values = c("#78C257", "#555555")) + coord_flip()
 ```
@@ -258,7 +258,7 @@ ggplot(violin_var_graphdat, aes(x = `value`, y = `numvar`, fill = as.factor(`Gen
   geom_violin(position = position_dodge(width = 0.75), alpha = 0.6, 
               color = "black") +
   facet_wrap(~ numvar, scales = "free") +
-  labs(x = "Frequency", y = "Numeric Variables", fill = "Gender") +
+  labs(title = "Violin Plot of Numerical Variables by Gender", x = "Frequency", y = "Numeric Variables", fill = "Gender") +
   theme_minimal() +
   theme(legend.position = "top") +
   coord_flip()
@@ -271,7 +271,7 @@ bar graphs for categorical
 ```{r}
 ggplot(mobile_behavior, aes(x = `User Behavior Class`, fill = Gender)) +
   geom_bar(position = "stack") +
-  labs(x = "User Behavior Class", y = "Frequency", fill = "Gender") +
+  labs(title = "Bar Graph of User Behavior Class with Gender Stack", x = "User Behavior Class", y = "Frequency", fill = "Gender") +
   theme_minimal() +
   theme(legend.position = "top")
 ```
@@ -289,7 +289,7 @@ pie_counts <- mobile_behavior |>
 ggplot(pie_counts, aes(x = "", y = counts, fill = factor(AgeCat))) +
   geom_bar(stat = "identity", width = 1) +
   coord_polar(theta = "y") +  
-  labs(fill = "AgeCat") +
+  labs(y = "Total Observations", x = "", title = "Pie Chart of AgeCat", fill = "AgeCat") +
   theme_minimal() +
   theme(legend.position = "right")
 ```
@@ -298,10 +298,12 @@ ggplot(pie_counts, aes(x = "", y = counts, fill = factor(AgeCat))) +
 
 ridge plot for 1 numeric 1 categorical
 
+So I decided to take this out in the final website! I realized it was unfortunately redundant, and it was also giving me a lot of errors. I figured the 7 graphs I have besides this one are enough.
+
 ```{r}
   ggplot(mobile_behavior, aes(x = `App Usage Time (min/day)`, y = AgeCat, fill = AgeCat)) +
     geom_density_ridges(alpha = 0.7) +
-    labs(x = "Numeric Variable",y = "AgeCat") +
+    labs(title = "App Usage Time (min/day) by AgeCat",x = "App Usage Time (min/day)",y = "AgeCat") +
     theme_minimal(base_size = 17) +
     theme(
       axis.title.x = element_text(size = 17), 
@@ -318,10 +320,30 @@ scatterplot for numerical
 ggplot(mobile_behavior, aes(x = `App Usage Time (min/day)`, y = `Screen On Time (hours/day)`)) +
   geom_point(alpha = 0.7, color = "blue") + 
   geom_smooth(method = "lm", se = FALSE, color = "red") +
-  labs(x = "app usage", 
+  labs(title = "App Usage by Screentime", x = "app usage", 
        y = "screen time", ) +
   theme_minimal(base_size = 17) +
   theme(axis.title.x = element_text(size = 17), 
         axis.title.y = element_text(size = 17),
         axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+### Dependencies
+
+create datasets that contain categorical and numerical variables only
+
+```{r}
+cat_vars <- mobile_behavior |>
+  select(`AgeCat`, `Operating System`, `Gender`, `User Behavior Class`) |>
+  mutate(
+    AgeCat = as.factor(AgeCat),
+    `Operating System` = as.factor(`Operating System`),
+    Gender = as.factor(Gender),
+    `User Behavior Class` = as.factor(`User Behavior Class`)
+  )
+```
+
+```{r}
+num_vars <- mobile_behavior |>
+  select(`App Usage Time (min/day)`, `Screen On Time (hours/day)`, `Battery Drain (mAh/day)`, `Data Usage (MB/day)`) 
 ```
