@@ -87,6 +87,10 @@ ui <- fluidPage(
                   Course at North Carolina State University. The project focuses on the integration of functions, data analysis, 
                   and the development of Shiny applications. The Shiny application allows users to interactively explore a datset,
                   by means of subsetting, downloading, and variable analysis."),
+                 h3("Author"),
+                  p("Robert (Robbie) Ferrand created this applet. As a former phone addict, he found interest and motivation
+                    in exploring this data. He is a student in the MS Statistics program, graduating FA2024. His primary
+                    interests are data analytics, data science, and teaching."),
                  h3("About the Data"),
                  p("The data",
                    tags$a(href = "https://www.kaggle.com/datasets/valakhorasani/mobile-device-usage-and-user-behavior-dataset", 
@@ -147,7 +151,7 @@ ui <- fluidPage(
                             tabsetPanel(
                               tabPanel("Histogram",
                                        h3("Histogram"),
-                                       selectInput("hist_cat", "Select Faceting variable", 
+                                       selectInput("hist_cat", "Select Filling Categorical Variable", 
                                                    choices = colnames(cat_vars), 
                                                    selected = "User Behavior Class"),
                                        withSpinner(plotOutput("multihistogram", width = "100%", height = "700px")),
@@ -155,7 +159,7 @@ ui <- fluidPage(
                               ),
                               tabPanel("Boxplots",
                                        h3("Boxplots"),
-                                       selectInput("box_cat", "Select Faceting variable", 
+                                       selectInput("box_cat", "Select Filling Categorical Variable", 
                                                    choices = colnames(cat_vars), 
                                                    selected = "Gender"),
                                        withSpinner(plotOutput("multiboxplot", width = "100%", height = "700px")),
@@ -168,7 +172,7 @@ ui <- fluidPage(
                               ),
                               tabPanel("Violin Plot",
                                        h3("Violin Plot"),
-                                       selectInput("violin_cat", "Select Faceting variable", 
+                                       selectInput("violin_cat", "Select Filling Categorical Variable", 
                                                    choices = colnames(cat_vars), 
                                                    selected = "AgeCat"),
                                        withSpinner(plotOutput("violin", width = "100%", height = "700px")),
@@ -176,22 +180,11 @@ ui <- fluidPage(
                               ),
                               tabPanel("Pie Chart",
                                        h3("Pie Chart"),
-                                       selectInput("pie_cat", "Select categorical Variable", 
+                                       selectInput("pie_cat", "Select Categorical Variable", 
                                                    choices = colnames(cat_vars), 
                                                    selected = "Operating System"),
                                        withSpinner(plotOutput("pie", width = "100%", height = "700px")),
                                        h3(uiOutput("pie_info"))
-                              ),
-                              tabPanel("Ridge Plot",
-                                       h3("Ridge Plot"),
-                                       selectInput("ridge_cat", "Select categorical Variable", 
-                                                   choices = colnames(cat_vars), 
-                                                   selected = "AgeCat"),
-                                       selectInput("ridge_num", "Select Numerical Variable", 
-                                                   choices = colnames(num_vars), 
-                                                   selected = "App Usage Time (min/day)"),
-                                       withSpinner(plotOutput("ridge", width = "100%", height = "700px")),
-                                       h3(uiOutput("ridge_info"))
                               ),
                               tabPanel("Scatterplot",
                                        h3("Scatterplot"),
@@ -206,10 +199,10 @@ ui <- fluidPage(
                               ),
                               tabPanel("Bar Graph",
                                        h3("Bar Graph"),
-                                       selectInput("barcat_var1", "Select First Categorical Variable", 
+                                       selectInput("barcat_var1", "Select Axis Categorical Variable", 
                                                    choices = colnames(cat_vars), 
                                                    selected = "Gender"),
-                                       selectInput("barcat_var2", "Select Second Categorical Variable", 
+                                       selectInput("barcat_var2", "Select Stacking Categorical Variable", 
                                                    choices = colnames(cat_vars), 
                                                    selected = "User Behavior Class"),
                                        withSpinner(plotOutput("bargraph", width = "100%", height = "700px")),
@@ -319,7 +312,7 @@ server <- function(input, output, session) {
     ]) < 2) {
       shinyalert(
         title = "Whoops!",
-        text = "The data has fewer than two observations after subsetting. This may cause issues in graphing. Please adjust your filters.",
+        text = "The data has fewer than two observations after subsetting. This may cause issues in graphing and table output. Please adjust your filters.",
         type = "warning",
         showConfirmButton = TRUE,
         closeOnClickOutside = TRUE
@@ -498,7 +491,7 @@ server <- function(input, output, session) {
     ggplot(num_var_graphdat, aes(x = value, fill = as.factor(!!sym(input$hist_cat)))) +
       geom_histogram(bins = 30, position = "identity", alpha = 0.7, color = "black") +
       facet_wrap(~ numvar, scales = "free") +
-      labs(x = "Numeric Variables", y = "Frequency By User Behavior", fill = sym(input$hist_cat)) +
+      labs(title = paste("Histogram Of Numeric Variables by", input$hist_cat), x = "Numeric Variables", y = "Frequency By User Behavior", fill = sym(input$hist_cat)) +
       theme_minimal(base_size = 17) +
       theme(legend.position = "top",
             axis.title.x = element_text(size = 17), 
@@ -530,7 +523,7 @@ server <- function(input, output, session) {
     ggplot(boxplot_var_graphdat, aes(x = `value`, y = `numvar`, fill = as.factor(!!sym(input$box_cat)))) +
       geom_boxplot(position = position_dodge(width = 0.75), alpha = 0.7, color = "black") +
       facet_wrap(~ numvar, scales = "free") +
-      labs(x = "Scale For Numeric Variables", y = "Frequency of User", fill = (input$box_cat)) +
+      labs(title = paste("Boxplot Of Numeric Variables by", input$box_cat), x = "Scale For Numeric Variables", y = "Frequency of User", fill = (input$box_cat)) +
       theme_minimal(base_size = 17) +
       theme(legend.position = "top",
             axis.title.x = element_text(size = 17), 
@@ -550,16 +543,25 @@ server <- function(input, output, session) {
 
   #create corrplot for numerical variable analysis
   output$corrplot <- renderPlot({
-    cor_matrix <- filtered_data() |>
-      select(`App Usage Time (min/day)`, 
-             `Screen On Time (hours/day)`, 
-             `Battery Drain (mAh/day)`, 
-             `Data Usage (MB/day)`,
-             `Age`,
-             `Number of Apps Installed`) |>
+    #use a sapply to find out if any correlations are NA, that is, have standard deviation 0. if so, remove them
+    if (any(sapply(filtered_data() |> select(-`User ID`) |> select(where(is.numeric)), sd, na.rm = TRUE) == 0)) {
+      shinyalert(
+        title = "Whoops!",
+        text = "You have subsetted the data too much. The corrplot does not have enough observations to properly render all variables. Please adjust your filters.",
+        type = "warning",
+        showConfirmButton = TRUE,
+        closeOnClickOutside = TRUE
+      )
+      return(NULL)
+    }
+    
+    filtered_data() |>
+      select(-`User ID`) |>
+      select(where(is.numeric)) |>
       cor(use = "complete.obs") |>
       corrplot(method = "circle", type = "upper", 
-               tl.col = "red", tl.srt = 45, addCoef.col = "black", col = colorRampPalette(c("cyan", "white", "salmon"))(200))
+               tl.col = "red", tl.srt = 45, addCoef.col = "black", 
+               col = colorRampPalette(c("cyan", "white", "salmon"))(200))
   })
   
   output$corr_info <- renderText({
@@ -579,12 +581,30 @@ server <- function(input, output, session) {
       pivot_longer(cols = -(!!sym(input$violin_cat)), 
                    names_to = "numvar", 
                    values_to = "value")
+  
+    
+    if (any(violin_var_graphdat |>
+            group_by(numvar, !!sym(input$violin_cat)) |>
+            #n distinct function to find two unique groups dplyr
+            summarize(n_distinct = n_distinct(value, na.rm = TRUE), .groups = 'drop') |>
+            filter(n_distinct < 2) |>
+            #must be g>0
+            nrow() > 0)) {
+      shinyalert(
+        title = "Whoops!",
+        text = "For the Violin Plot to render correctly, please include at least two distinct observations per group.",
+        type = "warning",
+        showConfirmButton = TRUE,
+        closeOnClickOutside = TRUE
+      )
+      return(NULL)
+    }
     
     #output violin plot with faceting, increasing size of axes for user readability
     ggplot(violin_var_graphdat, aes(x = `value`, y = `numvar`, fill = as.factor((!!sym(input$violin_cat))))) +
       geom_violin(position = position_dodge(width = 0.75), alpha = 0.7, color = "black") +
       facet_wrap(~ numvar, scales = "free") +
-      labs(x = "Numeric Variables", y = "Frequency of User", fill = ((input$violin_cat))) +
+      labs(title = paste("Violin Plot Of Numeric Variables by", input$violin_cat), x = "Numeric Variables", y = "Frequency of User", fill = ((input$violin_cat))) +
       theme_minimal(base_size = 17) +
       theme(legend.position = "top",
             axis.title.x = element_text(size = 17), 
@@ -611,7 +631,7 @@ server <- function(input, output, session) {
     ggplot(pie_counts, aes(x = "", y = count, fill = factor(!!sym(input$pie_cat)))) +
       geom_bar(stat = "identity", width = 1) +
       coord_polar(theta = "y") +  
-      labs(title = paste("Pie Chart Of", input$pie_cat), fill = input$pie_cat) +
+      labs(title = paste("Pie Chart Of", input$pie_cat), y = "Total Observations", x = "", fill = input$pie_cat) +
       theme_minimal(base_size = 17) +
       theme(legend.position = "top",
             axis.title.x = element_text(size = 17), 
@@ -627,26 +647,6 @@ server <- function(input, output, session) {
     ))
   })
   
-  #ridge plot for one numeric one categorical variable with user selection
-  output$ridge <- renderPlot({
-    ggplot(filtered_data(), aes(x = !!sym(input$ridge_num), y = !!sym(input$ridge_cat), fill = !!sym(input$ridge_cat))) +
-      geom_density_ridges(alpha = 0.7) +
-      labs(title = "Ridge Plot", x = input$ridge_num,y = input$ridge_cat) +
-      theme_minimal(base_size = 17) +
-      theme(
-        axis.title.x = element_text(size = 17), 
-        axis.title.y = element_text(size = 17),
-        axis.text.x = element_text(angle = 45, hjust = 1)
-      )
-  })
-  
-  output$ridge_info <- renderText({
-    HTML(paste0(
-      "After subsetting, the total number of observations is ", total_obs(), ".<br/>",
-      "For each ", input$ridge_cat, " group, the number of observations is as follows: <br/>",
-      paste(names(cat_obs_countsridge()), cat_obs_countsridge(), sep = ": ", collapse = "<br/>")
-    ))
-  })
   
   #scatterplot for two numeric variables with user selection
   output$scatter <- renderPlot({
@@ -676,7 +676,7 @@ server <- function(input, output, session) {
   output$bargraph <- renderPlot({
     ggplot(filtered_data(), aes(x = !!sym(input$barcat_var1), fill = as.factor(!!sym(input$barcat_var2)))) +
       geom_bar(position = "stack") +
-      labs(x = input$barcat_var1, y = "Frequency", fill = (input$barcat_var2)) +
+      labs(title = paste("Bar Graph of", input$barcat_var1, "and", input$barcat_var2), x = input$barcat_var1, y = "Frequency", fill = (input$barcat_var2)) +
       theme_minimal(base_size = 17) +
       theme(axis.title.x = element_text(size = 17), 
             axis.title.y = element_text(size = 17),
